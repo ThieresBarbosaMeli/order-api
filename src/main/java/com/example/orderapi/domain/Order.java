@@ -2,8 +2,14 @@ package com.example.orderapi.domain;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import java.time.LocalDateTime;
 
+@Getter
+@Setter
+@NoArgsConstructor
 @Entity
 @Table(name = "orders")
 public class Order {
@@ -34,17 +40,4 @@ public class Order {
         this.dateUpdated = LocalDateTime.now();
         this.status = OrderStatus.CREATED;
     }
-
-    public Long getId() { return id; }
-    public String getCpfClient() { return cpfClient; }
-    public void setCpfClient(String cpfClient) { this.cpfClient = cpfClient; }
-    public Payment getPayment() { return payment; }
-    public void setPayment(Payment payment) { this.payment = payment; }
-    public Long getIdProduct() { return idProduct; }
-    public void setIdProduct(Long idProduct) { this.idProduct = idProduct; }
-    public LocalDateTime getDateBuild() { return dateBuild; }
-    public LocalDateTime getDateUpdated() { return dateUpdated; }
-    public void setDateUpdated(LocalDateTime dateUpdated) { this.dateUpdated = dateUpdated; }
-    public OrderStatus getStatus() { return status; }
-    public void setStatus(OrderStatus status) { this.status = status; }
 }
