@@ -9,23 +9,20 @@ import com.example.orderapi.dto.OrderStatusUpdateDTO;
 import com.example.orderapi.exception.InvalidStatusTransitionException;
 import com.example.orderapi.exception.OrderNotFoundException;
 import com.example.orderapi.repository.OrderRepository;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.Arrays;
 
 @Service
 public class OrderService {
 
     private final OrderRepository repository;
-    private final CacheManager cacheManager;
 
-    public OrderService(OrderRepository repository, CacheManager cacheManager) {
+    public OrderService(OrderRepository repository) {
         this.repository = repository;
-        this.cacheManager = cacheManager;
     }
 
     public Order create(OrderRequestDTO dto) {
@@ -43,6 +40,7 @@ public class OrderService {
         return repository.save(order);
     }
 
+    @CacheEvict(value = "orders", key = "#id")
     public Order updateStatus(Long id, OrderStatusUpdateDTO dto) {
         OrderStatus newStatus;
         try {
@@ -61,35 +59,13 @@ public class OrderService {
         }
 
         order.setStatus(newStatus);
-        order.setDateUpdated(LocalDateTime.now());
-        Order updated = repository.save(order);
-
-        Cache cache = cacheManager.getCache("orders");
-        if (cache != null) {
-            cache.evict(id);
-        }
-
-        return updated;
+        return repository.save(order);
     }
 
+    @Cacheable(value = "orders", key = "#id")
     public Order getById(Long id) {
-        Cache cache = cacheManager.getCache("orders");
-
-        if (cache != null) {
-            Cache.ValueWrapper cached = cache.get(id);
-            if (cached != null) {
-                return (Order) cached.get();
-            }
-        }
-
-        Order order = repository.findById(id)
+        return repository.findById(id)
                 .orElseThrow(() -> new OrderNotFoundException("Order não encontrada com id: " + id));
-
-        if (cache != null) {
-            cache.put(id, order);
-        }
-
-        return order;
     }
 
     private void validateCreateRequest(OrderRequestDTO dto) {

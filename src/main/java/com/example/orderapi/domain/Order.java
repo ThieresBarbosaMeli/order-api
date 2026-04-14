@@ -18,20 +18,25 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false, length = 11)
     private String cpfClient;
 
     @Embedded
     private Payment payment;
 
+    @Column(nullable = false)
     private Long idProduct;
 
+    @Column(nullable = false)
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime dateBuild;
 
+    @Column(nullable = false)
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime dateUpdated;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private OrderStatus status;
 
     @PrePersist
@@ -39,5 +44,10 @@ public class Order {
         this.dateBuild = LocalDateTime.now();
         this.dateUpdated = LocalDateTime.now();
         this.status = OrderStatus.CREATED;
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        this.dateUpdated = LocalDateTime.now();
     }
 }
