@@ -32,6 +32,9 @@ build/
 ### VS Code ###
 .vscode/
 
+### Claude Code ###
+.claude/settings.local.json
+
 ### Arquivos de documentação local ###
 APLICACAO_COMPLETA.md
 update-doc.sh
