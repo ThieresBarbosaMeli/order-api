@@ -1,5 +1,6 @@
 package com.example.orderapi.service;
 
+import com.example.orderapi.domain.IdempotencyRecord;
 import com.example.orderapi.domain.Order;
 import com.example.orderapi.domain.OrderStatus;
 import com.example.orderapi.domain.Payment;
@@ -8,26 +9,26 @@ import com.example.orderapi.dto.OrderRequestDTO;
 import com.example.orderapi.dto.OrderStatusUpdateDTO;
 import com.example.orderapi.exception.InvalidStatusTransitionException;
 import com.example.orderapi.exception.OrderNotFoundException;
+import com.example.orderapi.repository.IdempotencyRepository;
 import com.example.orderapi.repository.OrderRepository;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-
-import java.math.BigDecimal;
-import java.util.Arrays;
 
 @Service
 public class OrderService {
 
     private final OrderRepository repository;
+    private final IdempotencyRepository idempotencyRepository;
 
-    public OrderService(OrderRepository repository) {
+    public OrderService(OrderRepository repository, IdempotencyRepository idempotencyRepository) {
         this.repository = repository;
+        this.idempotencyRepository = idempotencyRepository;
     }
 
     public Order create(OrderRequestDTO dto) {
-        validateCreateRequest(dto);
-
         Order order = new Order();
         order.setCpfClient(dto.cpf_client());
         order.setIdProduct(dto.id_produto());
@@ -38,6 +39,33 @@ public class OrderService {
         order.setPayment(payment);
 
         return repository.save(order);
+    }
+
+    public Order pay(Long id, String idempotencyKey) {
+        var existing = idempotencyRepository.findByIdempotencyKey(idempotencyKey);
+        if (existing.isPresent()) {
+            return repository.findById(existing.get().getOrderId())
+                    .orElseThrow(() -> new OrderNotFoundException("Order não encontrada com id: " + id));
+        }
+
+        Order order = repository.findById(id)
+                .orElseThrow(() -> new OrderNotFoundException("Order não encontrada com id: " + id));
+
+        if (order.getStatus() != OrderStatus.CREATED) {
+            throw new InvalidStatusTransitionException(
+                    "Pedido não pode ser pago. Status atual: " + order.getStatus()
+            );
+        }
+
+        order.setStatus(OrderStatus.PAID);
+        Order updated = repository.save(order);
+
+        IdempotencyRecord record = new IdempotencyRecord();
+        record.setIdempotencyKey(idempotencyKey);
+        record.setOrderId(id);
+        idempotencyRepository.save(record);
+
+        return updated;
     }
 
     @CacheEvict(value = "orders", key = "#id")
@@ -68,26 +96,10 @@ public class OrderService {
                 .orElseThrow(() -> new OrderNotFoundException("Order não encontrada com id: " + id));
     }
 
-    private void validateCreateRequest(OrderRequestDTO dto) {
-        if (dto.cpf_client() == null || dto.cpf_client().length() != 11) {
-            throw new IllegalArgumentException("CPF deve ter exatamente 11 caracteres.");
+    public Page<Order> listAll(OrderStatus status, Pageable pageable) {
+        if (status != null) {
+            return repository.findByStatus(status, pageable);
         }
-        if (dto.payment() == null) {
-            throw new IllegalArgumentException("Pagamento não pode ser nulo ou vazio.");
-        }
-        if (dto.payment().type() == null || !isValidPaymentType(dto.payment().type())) {
-            throw new IllegalArgumentException("Tipo de pagamento deve ser PIX, BOLETO ou CARTAO.");
-        }
-        if (dto.payment().price() == null || dto.payment().price().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Valor do pagamento deve ser positivo.");
-        }
-        if (dto.id_produto() == null) {
-            throw new IllegalArgumentException("ID do produto não pode ser nulo.");
-        }
-    }
-
-    private boolean isValidPaymentType(String type) {
-        return Arrays.stream(PaymentType.values())
-                .anyMatch(p -> p.name().equals(type));
+        return repository.findAll(pageable);
     }
 }
