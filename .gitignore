@@ -1,4 +1,3 @@
-HELP.md
 target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
@@ -35,6 +34,3 @@ build/
 ### Claude Code ###
 .claude/settings.local.json
 
-### Arquivos de documentação local ###
-APLICACAO_COMPLETA.md
-update-doc.sh

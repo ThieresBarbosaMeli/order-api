@@ -7,15 +7,18 @@ import com.example.orderapi.domain.Payment;
 import com.example.orderapi.domain.PaymentType;
 import com.example.orderapi.dto.OrderRequestDTO;
 import com.example.orderapi.dto.OrderStatusUpdateDTO;
+import com.example.orderapi.exception.IdempotencyConflictException;
 import com.example.orderapi.exception.InvalidStatusTransitionException;
 import com.example.orderapi.exception.OrderNotFoundException;
 import com.example.orderapi.repository.IdempotencyRepository;
 import com.example.orderapi.repository.OrderRepository;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class OrderService {
@@ -41,9 +44,14 @@ public class OrderService {
         return repository.save(order);
     }
 
+    @Transactional
+    @CacheEvict(value = "orders", key = "#id")
     public Order pay(Long id, String idempotencyKey) {
         var existing = idempotencyRepository.findByIdempotencyKey(idempotencyKey);
         if (existing.isPresent()) {
+            if (!existing.get().getOrderId().equals(id)) {
+                throw new IdempotencyConflictException("Idempotency-Key já utilizada para outro pedido.");
+            }
             return repository.findById(existing.get().getOrderId())
                     .orElseThrow(() -> new OrderNotFoundException("Order não encontrada com id: " + id));
         }
@@ -60,14 +68,21 @@ public class OrderService {
         order.setStatus(OrderStatus.PAID);
         Order updated = repository.save(order);
 
-        IdempotencyRecord record = new IdempotencyRecord();
-        record.setIdempotencyKey(idempotencyKey);
-        record.setOrderId(id);
-        idempotencyRepository.save(record);
+        try {
+            IdempotencyRecord record = new IdempotencyRecord();
+            record.setIdempotencyKey(idempotencyKey);
+            record.setOrderId(id);
+            idempotencyRepository.save(record);
+        } catch (DataIntegrityViolationException e) {
+            // Race condition: outra requisição gravou a chave primeiro — retorna o pedido já pago
+            return repository.findById(id)
+                    .orElseThrow(() -> new OrderNotFoundException("Order não encontrada com id: " + id));
+        }
 
         return updated;
     }
 
+    @Transactional
     @CacheEvict(value = "orders", key = "#id")
     public Order updateStatus(Long id, OrderStatusUpdateDTO dto) {
         OrderStatus newStatus;

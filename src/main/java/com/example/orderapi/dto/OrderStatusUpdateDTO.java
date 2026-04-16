@@ -1,3 +1,8 @@
 package com.example.orderapi.dto;
 
-public record OrderStatusUpdateDTO(String status) {}
+import jakarta.validation.constraints.NotBlank;
+
+public record OrderStatusUpdateDTO(
+        @NotBlank(message = "Status não pode ser nulo ou vazio.")
+        String status
+) {}

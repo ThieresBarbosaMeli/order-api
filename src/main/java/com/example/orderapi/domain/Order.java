@@ -1,6 +1,7 @@
 package com.example.orderapi.domain;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -19,19 +20,23 @@ public class Order {
     private Long id;
 
     @Column(nullable = false, length = 11)
+    @JsonProperty("cpf_client")
     private String cpfClient;
 
     @Embedded
     private Payment payment;
 
     @Column(nullable = false)
+    @JsonProperty("id_product")
     private Long idProduct;
 
     @Column(nullable = false)
+    @JsonProperty("date_build")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime dateBuild;
 
     @Column(nullable = false)
+    @JsonProperty("date_updated")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime dateUpdated;
 

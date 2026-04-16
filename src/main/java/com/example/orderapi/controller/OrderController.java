@@ -41,7 +41,7 @@ public class OrderController {
     @PatchMapping("/{id}/status")
     public ResponseEntity<Order> updateStatus(
             @PathVariable Long id,
-            @RequestBody OrderStatusUpdateDTO dto
+            @RequestBody @Valid OrderStatusUpdateDTO dto
     ) {
         Order order = service.updateStatus(id, dto);
         return ResponseEntity.ok(order);
