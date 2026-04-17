@@ -68,14 +68,29 @@
 
 ---
 
+## ✅ Itens analisados e descartados intencionalmente
+
+### 1. Publicação de eventos duplicada
+- **Análise:** O problema ocorre quando uma operação salva no banco e publica um evento para outro sistema sem garantia de atomicidade — se um falhar, os sistemas ficam inconsistentes.
+- **Por que não se aplica:** A aplicação não possui mensageria (Kafka, RabbitMQ) nem qualquer mecanismo de publicação de eventos. Cada operação realiza um único `repository.save()`, que já é atômico por natureza. Não há segundo destino onde um evento pudesse se perder.
+- **Recomendação futura:** Caso mensageria seja introduzida, implementar o padrão Outbox para garantir atomicidade.
+
+### 2. Problema N+1 em listagens
+- **Análise:** O N+1 ocorre quando uma listagem gera uma query para cada item da lista ao buscar dados de uma relação lazy.
+- **Por que não se aplica:** `Payment` é mapeado com `@Embedded`, ou seja, seus campos (`type` e `price`) ficam na mesma tabela que `Order`. Uma única query já retorna todos os dados — não há relação lazy nem tabela separada que pudesse gerar consultas extras.
+- **Recomendação futura:** Se `Payment` ou outro relacionamento for extraído para tabela própria, revisar com `@EntityGraph` ou `JOIN FETCH`.
+
+---
+
 ## ⏳ O que ficou pendente e por quê
 
-### 1. Validação completa do CPF
-- **Motivo:** A validação atual verifica apenas o tamanho (11 caracteres).
-- **Impacto:** CPFs inválidos como 00000000000 são aceitos.
-- **Recomendação:** Implementar validação com dígitos verificadores.
+### 1. Validação completa do CPF — ✅ Implementado
+- **Problema:** A validação anterior verificava apenas o tamanho (11 caracteres), aceitando CPFs como `00000000000`.
+- **Correção:** Criado `@ValidCPF` com validador customizado (`CPFValidator`) que aplica o algoritmo oficial dos dígitos verificadores da Receita Federal.
+- **Arquivos:** `validation/ValidCPF.java`, `validation/CPFValidator.java`, `dto/OrderRequestDTO.java`
 
-### 2. Autenticação e autorização
-- **Motivo:** Fora do escopo do projeto.
-- **Impacto:** Qualquer pessoa pode acessar e modificar qualquer pedido.
-- **Recomendação:** Implementar Spring Security com JWT.
+### 2. Autenticação e autorização — ✅ Implementado
+- **Problema:** Qualquer pessoa podia acessar e modificar qualquer pedido sem autenticação.
+- **Correção:** Adicionado Spring Security com JWT. O endpoint `POST /auth/login` recebe usuário e senha e retorna um token. Todos os demais endpoints exigem o token no header `Authorization: Bearer <token>`.
+- **Arquivos:** `security/JwtUtil.java`, `security/JwtFilter.java`, `security/SecurityConfig.java`, `controller/AuthController.java`
+- **Credenciais padrão:** `admin` / `admin123` (configurável via `application.properties`)
