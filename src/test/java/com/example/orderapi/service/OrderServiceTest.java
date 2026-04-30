@@ -2,9 +2,11 @@ package com.example.orderapi.service;
 
 import com.example.orderapi.domain.IdempotencyRecord;
 import com.example.orderapi.domain.Order;
+import com.example.orderapi.domain.OrderItem;
 import com.example.orderapi.domain.OrderStatus;
 import com.example.orderapi.domain.Payment;
 import com.example.orderapi.domain.PaymentType;
+import com.example.orderapi.dto.OrderItemDTO;
 import com.example.orderapi.dto.OrderRequestDTO;
 import com.example.orderapi.dto.OrderStatusUpdateDTO;
 import com.example.orderapi.dto.PaymentDTO;
@@ -20,6 +22,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -47,16 +50,22 @@ class OrderServiceTest {
         payment.setType(PaymentType.PIX);
         payment.setPrice(new BigDecimal("100.00"));
 
+        OrderItem item = new OrderItem();
+        item.setIdProduct(1L);
+        item.setQuantity(1);
+        item.setPrice(new BigDecimal("100.00"));
+
         order = new Order();
         order.setStatus(OrderStatus.CREATED);
         order.setCpfClient("12345678901");
-        order.setIdProduct(1L);
         order.setPayment(payment);
+        item.setOrder(order);
+        order.getItems().add(item);
 
         requestDTO = new OrderRequestDTO(
                 "12345678901",
                 new PaymentDTO("PIX", new BigDecimal("100.00")),
-                1L
+                List.of(new OrderItemDTO(1L, 1, new BigDecimal("100.00")))
         );
     }
 

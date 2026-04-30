@@ -1,12 +1,12 @@
 package com.example.orderapi.controller;
 
 import com.example.orderapi.domain.Order;
+import com.example.orderapi.domain.OrderItem;
 import com.example.orderapi.domain.OrderStatus;
 import com.example.orderapi.domain.Payment;
 import com.example.orderapi.domain.PaymentType;
 import com.example.orderapi.repository.IdempotencyRepository;
 import com.example.orderapi.repository.OrderRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,9 +36,6 @@ class OrderControllerIntegrationTest {
     @Autowired
     private IdempotencyRepository idempotencyRepository;
 
-    @Autowired
-    private ObjectMapper objectMapper;
-
     @BeforeEach
     void setUp() {
         idempotencyRepository.deleteAll();
@@ -51,7 +48,9 @@ class OrderControllerIntegrationTest {
                 {
                   "cpf_client": "12345678901",
                   "payment": { "type": "PIX", "price": 100.00 },
-                  "id_produto": 1
+                  "items": [
+                    { "idProduct": 1, "quantity": 2, "price": 50.00 }
+                  ]
                 }
                 """;
 
@@ -60,7 +59,8 @@ class OrderControllerIntegrationTest {
                         .content(body))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("CREATED"))
-                .andExpect(jsonPath("$.cpf_client").value("12345678901"));
+                .andExpect(jsonPath("$.cpf_client").value("12345678901"))
+                .andExpect(jsonPath("$.items", hasSize(1)));
     }
 
     @Test
@@ -69,7 +69,9 @@ class OrderControllerIntegrationTest {
                 {
                   "cpf_client": "123",
                   "payment": { "type": "PIX", "price": 100.00 },
-                  "id_produto": 1
+                  "items": [
+                    { "idProduct": 1, "quantity": 1, "price": 100.00 }
+                  ]
                 }
                 """;
 
@@ -85,7 +87,9 @@ class OrderControllerIntegrationTest {
         String body = """
                 {
                   "cpf_client": "12345678901",
-                  "id_produto": 1
+                  "items": [
+                    { "idProduct": 1, "quantity": 1, "price": 100.00 }
+                  ]
                 }
                 """;
 
@@ -190,7 +194,7 @@ class OrderControllerIntegrationTest {
     }
 
     @Test
-    void getOrders_deveFilterarPorStatus() throws Exception {
+    void getOrders_deveFiltrarPorStatus() throws Exception {
         criarPedido();
 
         mockMvc.perform(get("/orders?status=CREATED"))
@@ -247,9 +251,15 @@ class OrderControllerIntegrationTest {
 
         Order order = new Order();
         order.setCpfClient("12345678901");
-        order.setIdProduct(1L);
         order.setPayment(payment);
         order.setStatus(OrderStatus.CREATED);
+
+        OrderItem item = new OrderItem();
+        item.setIdProduct(1L);
+        item.setQuantity(1);
+        item.setPrice(new BigDecimal("100.00"));
+        item.setOrder(order);
+        order.getItems().add(item);
 
         return orderRepository.save(order);
     }

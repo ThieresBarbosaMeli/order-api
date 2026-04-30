@@ -7,6 +7,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
@@ -26,18 +28,17 @@ public class Order {
     @Embedded
     private Payment payment;
 
-    @Column(nullable = false)
-    @JsonProperty("id_product")
-    private Long idProduct;
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<OrderItem> items = new ArrayList<>();
 
     @Column(nullable = false)
-    @JsonProperty("date_build")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @JsonProperty("date_build")
     private LocalDateTime dateBuild;
 
     @Column(nullable = false)
-    @JsonProperty("date_updated")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @JsonProperty("date_updated")
     private LocalDateTime dateUpdated;
 
     @Enumerated(EnumType.STRING)
