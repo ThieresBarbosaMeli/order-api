@@ -1,0 +1,43 @@
+src/main/java/com/example/orderapi/dto/OrderRequestDTO.java
+  h_d883c275934f47 5,7,9,13,20-22
+src/main/java/com/example/orderapi/dto/OrderItemDTO.java
+  h_d883c275934f47 1-19
+src/main/java/com/example/orderapi/service/OrderService.java
+  h_d883c275934f47 5,41-49,75
+src/main/java/com/example/orderapi/domain/Order.java
+  h_d883c275934f47 10-11,31-32,36,41
+src/main/java/com/example/orderapi/repository/OrderRepository.java
+  h_d883c275934f47 7,10-11,13-17,19-21
+src/test/java/com/example/orderapi/service/OrderServiceTest.java
+  h_d883c275934f47 5,9,25,53-57,62-63,68
+src/test/java/com/example/orderapi/controller/OrderControllerIntegrationTest.java
+  h_d883c275934f47 4,51-53,63,72-74,90-92,197,257-260
+  18476008c70fe664 261-262
+src/main/java/com/example/orderapi/domain/OrderItem.java
+  h_d883c275934f47 1-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "b40d30489b0a932d49f536f5bc695e7d96f7f94a",
+  "prompts": {
+    "18476008c70fe664": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc8f07f1-9c0a-45cd-a60e-3625bac91163",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Thieres Barbosa",
+      "messages": [],
+      "total_additions": 13,
+      "total_deletions": 3,
+      "accepted_lines": 10,
+      "overriden_lines": 1
+    }
+  },
+  "humans": {
+    "h_d883c275934f47": {
+      "author": "Thieres Barbosa"
+    }
+  }
+}
