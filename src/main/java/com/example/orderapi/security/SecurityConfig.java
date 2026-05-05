@@ -40,7 +40,6 @@ public class SecurityConfig {
 
     @Bean
     public UserDetailsService userDetailsService() {
-        // Desabilita o usuário gerado automaticamente pelo Spring Security
         return new InMemoryUserDetailsManager(
                 User.withUsername("_disabled").password("{noop}disabled").roles("NONE").build()
         );
