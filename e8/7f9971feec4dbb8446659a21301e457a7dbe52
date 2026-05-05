@@ -1,0 +1,12 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "e87f9971feec4dbb8446659a21301e457a7dbe52",
+  "prompts": {},
+  "humans": {
+    "h_d883c275934f47": {
+      "author": "Thieres Barbosa"
+    }
+  }
+}
