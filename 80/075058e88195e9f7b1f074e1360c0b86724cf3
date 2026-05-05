@@ -1,0 +1,14 @@
+src/main/java/com/example/orderapi/service/OrderService.java
+  h_d883c275934f47 20,54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "80075058e88195e9f7b1f074e1360c0b86724cf3",
+  "prompts": {},
+  "humans": {
+    "h_d883c275934f47": {
+      "author": "Thieres Barbosa"
+    }
+  }
+}
