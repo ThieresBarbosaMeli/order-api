@@ -17,6 +17,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class OrderService {
@@ -50,6 +51,7 @@ public class OrderService {
         return repository.save(order);
     }
 
+    @Transactional
     public Order pay(Long id, String idempotencyKey) {
         var existing = idempotencyRepository.findByIdempotencyKey(idempotencyKey);
         if (existing.isPresent()) {
