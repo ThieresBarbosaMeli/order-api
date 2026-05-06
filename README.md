@@ -7,7 +7,7 @@ API REST para gerenciamento de pedidos, desenvolvida com Java 21 e Spring Boot 3
 ## 🚀 Como rodar o projeto localmente
 
 ### Pré-requisitos
-- Java 21
+- Java 21+
 - Maven
 - MySQL rodando na porta 3306
 
@@ -19,7 +19,7 @@ git clone https://github.com/ThieresBarbosaMeli/order-api.git
 cd order-api
 ```
 
-2. Configure o banco de dados no arquivo `src/main/resources/application.properties`:
+2. Configure o banco de dados no `src/main/resources/application.properties`:
 ```properties
 spring.datasource.url=jdbc:mysql://localhost:3306/orderdb?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
 spring.datasource.username=root
@@ -35,54 +35,86 @@ A API estará disponível em `http://localhost:8080`.
 
 ---
 
+## 🔐 Autenticação
+
+Todos os endpoints (exceto `POST /auth/login`) exigem um JWT no header `Authorization`.
+
+### Obter token
+
+```bash
+curl -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin123"}'
+```
+
+Resposta:
+```json
+{ "token": "<jwt>" }
+```
+
+Use o token em todas as chamadas:
+```
+Authorization: Bearer <jwt>
+```
+
+> Credenciais configuráveis em `application.properties` via `auth.admin.username` e `auth.admin.password`.
+
+---
+
 ## 📦 Endpoints
 
-| Método | Rota                | Descrição                            |
-|--------|---------------------|--------------------------------------|
-| POST   | /orders             | Cria um novo pedido                  |
-| POST   | /orders/{id}/pay    | Paga um pedido (com idempotência)    |
-| PATCH  | /orders/{id}/status | Atualiza o status do pedido          |
-| GET    | /orders/{id}        | Busca pedido por ID                  |
-| GET    | /orders             | Lista pedidos com paginação e filtro |
+| Método | Rota                    | Descrição                            |
+|--------|-------------------------|--------------------------------------|
+| POST   | /auth/login             | Autentica e retorna JWT              |
+| POST   | /orders                 | Cria um novo pedido                  |
+| POST   | /orders/{id}/pay        | Paga um pedido (com idempotência)    |
+| PATCH  | /orders/{id}/status     | Atualiza o status do pedido          |
+| GET    | /orders/{id}            | Busca pedido por ID (com cache)      |
+| GET    | /orders                 | Lista pedidos com paginação e filtro |
 
 ---
 
 ## 📋 Exemplos de uso
 
 ### Criar pedido
-```http
-POST /orders
-Content-Type: application/json
-
-{
-  "cpf_client": "12345678901",
-  "payment": {
-    "type": "PIX",
-    "price": 99.90
-  },
-  "id_produto": 1
-}
+```bash
+curl -X POST http://localhost:8080/orders \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "cpf_client": "11144477735",
+    "payment": { "type": "PIX", "price": 99.90 },
+    "items": [
+      { "idProduct": 1, "quantity": 2, "price": 49.95 }
+    ]
+  }'
 ```
 
 ### Pagar pedido
-```http
-POST /orders/1/pay
-Idempotency-Key: chave-unica-123
+```bash
+curl -X POST http://localhost:8080/orders/1/pay \
+  -H "Authorization: Bearer <token>" \
+  -H "Idempotency-Key: chave-unica-abc123"
 ```
 
 ### Atualizar status
-```http
-PATCH /orders/1/status
-Content-Type: application/json
+```bash
+curl -X PATCH http://localhost:8080/orders/1/status \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"status":"SENT"}'
+```
 
-{
-  "status": "SENT"
-}
+### Buscar pedido
+```bash
+curl http://localhost:8080/orders/1 \
+  -H "Authorization: Bearer <token>"
 ```
 
 ### Listar pedidos com filtro e paginação
-```http
-GET /orders?status=PAID&page=0&size=10&sortBy=dateBuild&direction=desc
+```bash
+curl "http://localhost:8080/orders?status=PAID&page=0&size=10&sortBy=id&direction=desc" \
+  -H "Authorization: Bearer <token>"
 ```
 
 ---
@@ -93,77 +125,36 @@ GET /orders?status=PAID&page=0&size=10&sortBy=dateBuild&direction=desc
 CREATED → PAID → SENT → DELIVERED
 ```
 
-As transições devem ser sequenciais. Não é permitido pular etapas ou retroceder.
+Transições devem ser sequenciais. Pular etapas ou retroceder retorna **409 Conflict**.
 
 ---
 
 ## 💳 Tipos de pagamento aceitos
 
-| Tipo    | Descrição     |
-|---------|---------------|
-| PIX     | Pagamento Pix |
-| BOLETO  | Boleto bancário |
-| CARTAO  | Cartão de crédito/débito |
+| Tipo    | Descrição               |
+|---------|-------------------------|
+| PIX     | Pagamento Pix           |
+| BOLETO  | Boleto bancário         |
+| CARTAO  | Cartão de crédito/débito|
 
 ---
 
 ## 🛡️ Idempotência
 
-O endpoint `POST /orders/{id}/pay` é protegido por idempotência. Envie o header `Idempotency-Key` com uma chave única por operação. Chamadas repetidas com a mesma chave retornam o resultado original sem processar novamente.
+O endpoint `POST /orders/{id}/pay` é protegido por idempotência via header `Idempotency-Key`.
+
+- **Mesma chave + mesmo pedido**: retorna o resultado original sem reprocessar (200).
+- **Mesma chave + pedido diferente**: retorna **409 Conflict** — a chave pertence a outro pedido.
 
 ---
 
-## 🧰 Tecnologias utilizadas
+## ✅ Como rodar os testes
 
-- Java 21
-- Spring Boot 3.4.5
-- Spring Data JPA
-- Spring Cache (Caffeine)
-- Bean Validation
-- Lombok
-- MySQL
-- Maven
-
----
-
-## ✅ Como validar a aplicação
-
-### Rodar todos os testes
 ```bash
 ./mvnw test
 ```
 
-### Testar manualmente com curl
-
-**Criar pedido:**
-```bash
-curl -X POST http://localhost:8080/orders \
-  -H "Content-Type: application/json" \
-  -d '{"cpf_client":"12345678901","payment":{"type":"PIX","price":100.00},"id_produto":1}'
-```
-
-**Pagar pedido:**
-```bash
-curl -X POST http://localhost:8080/orders/1/pay \
-  -H "Idempotency-Key: chave-unica-001"
-```
-
-**Atualizar status:**
-```bash
-curl -X PATCH http://localhost:8080/orders/1/status \
-  -H "Content-Type: application/json" \
-  -d '{"status":"SENT"}'
-```
-
-**Buscar pedido:**
-```bash
-curl http://localhost:8080/orders/1
-```
-
-**Listar pedidos:**
-```bash
-curl "http://localhost:8080/orders?status=PAID&page=0&size=10&sortBy=dateBuild&direction=desc"
-```
+Os testes de integração usam banco H2 em memória (perfil `test`) e `@WithMockUser` para contornar a camada JWT sem comprometer a segurança em produção.
 
 ---
 
@@ -171,9 +162,27 @@ curl "http://localhost:8080/orders?status=PAID&page=0&size=10&sortBy=dateBuild&d
 
 | Decisão | Justificativa |
 |---------|--------------|
+| **@EntityGraph nas queries** | Carrega `items` em JOIN único, eliminando o problema N+1 com `open-in-view=false` |
+| **@Transactional em todos os métodos de escrita** | Garante atomicidade entre cache evict e commit no banco |
+| **@ValidCPF aplicado no DTO** | Valida dígitos verificadores do CPF via algoritmo da Receita Federal |
+| **Idempotency-Key com validação de orderId** | Impede reutilização da mesma chave para pedidos diferentes (409) |
+| **@JsonIgnore em OrderItem.order** | Evita recursão circular ao serializar Order → items → OrderItem → order |
+| **@WithMockUser nos testes de integração** | Isola teste de negócio da infraestrutura de JWT sem desabilitar segurança |
 | **Caffeine Cache** | Cache local em memória, rápido e simples para o escopo do projeto |
-| **@PrePersist / @PreUpdate** | Garante que as datas sejam gerenciadas pela entidade, não pelo serviço |
-| **Idempotency-Key no header** | Padrão de mercado para evitar pagamentos duplicados |
-| **Bean Validation nos DTOs** | Separa validação do serviço, tornando o código mais limpo |
-| **Lombok** | Reduz boilerplate de getters, setters e construtores |
-| **MySQL** | Banco relacional já configurado no ambiente de desenvolvimento |
+| **@PrePersist / @PreUpdate** | Datas gerenciadas pela entidade — sem risco de esquecer nos serviços |
+| **Lock pessimista no pagamento** | Previne pagamento duplo em requisições concorrentes |
+| **MySQL (prod) / H2 (test)** | Banco relacional robusto em prod; H2 em memória para testes rápidos e isolados |
+
+---
+
+## 🧰 Tecnologias utilizadas
+
+- Java 21
+- Spring Boot 3.4.5
+- Spring Data JPA + Hibernate
+- Spring Cache (Caffeine)
+- Spring Security + JWT (jjwt 0.12.6)
+- Bean Validation (Jakarta)
+- Lombok
+- MySQL / H2
+- Maven

@@ -10,6 +10,7 @@ import com.example.orderapi.dto.OrderItemDTO;
 import com.example.orderapi.dto.OrderRequestDTO;
 import com.example.orderapi.dto.OrderStatusUpdateDTO;
 import com.example.orderapi.dto.PaymentDTO;
+import com.example.orderapi.exception.IdempotencyConflictException;
 import com.example.orderapi.exception.InvalidStatusTransitionException;
 import com.example.orderapi.exception.OrderNotFoundException;
 import com.example.orderapi.repository.IdempotencyRepository;
@@ -69,6 +70,10 @@ class OrderServiceTest {
         );
     }
 
+    // -------------------------------------------------------------------------
+    // create()
+    // -------------------------------------------------------------------------
+
     @Test
     void deveCriarPedidoComSucesso() {
         when(repository.save(any(Order.class))).thenReturn(order);
@@ -81,9 +86,25 @@ class OrderServiceTest {
     }
 
     @Test
+    void deveLancarExcecaoParaTipoPagamentoInvalido() {
+        OrderRequestDTO dtoInvalido = new OrderRequestDTO(
+                "12345678901",
+                new PaymentDTO("BITCOIN", new BigDecimal("100.00")),
+                List.of(new OrderItemDTO(1L, 1, new BigDecimal("100.00")))
+        );
+
+        assertThrows(IllegalArgumentException.class, () -> service.create(dtoInvalido));
+    }
+
+    // -------------------------------------------------------------------------
+    // pay()
+    // CORREÇÃO: mockado findByIdWithLock (que o serviço chama) e não findById
+    // -------------------------------------------------------------------------
+
+    @Test
     void devePagarPedidoComSucesso() {
+        when(repository.findByIdWithLock(1L)).thenReturn(Optional.of(order));
         when(idempotencyRepository.findByIdempotencyKey("chave-001")).thenReturn(Optional.empty());
-        when(repository.findById(1L)).thenReturn(Optional.of(order));
         when(repository.save(any(Order.class))).thenReturn(order);
         when(idempotencyRepository.save(any(IdempotencyRecord.class))).thenReturn(new IdempotencyRecord());
 
@@ -98,8 +119,8 @@ class OrderServiceTest {
     void deveLancarExcecaoAoPagarPedidoJaPago() {
         order.setStatus(OrderStatus.PAID);
 
+        when(repository.findByIdWithLock(1L)).thenReturn(Optional.of(order));
         when(idempotencyRepository.findByIdempotencyKey("chave-001")).thenReturn(Optional.empty());
-        when(repository.findById(1L)).thenReturn(Optional.of(order));
 
         assertThrows(InvalidStatusTransitionException.class, () -> service.pay(1L, "chave-001"));
     }
@@ -110,14 +131,42 @@ class OrderServiceTest {
         record.setIdempotencyKey("chave-001");
         record.setOrderId(1L);
 
-        when(idempotencyRepository.findByIdempotencyKey("chave-001")).thenReturn(Optional.of(record));
-        when(repository.findById(1L)).thenReturn(Optional.of(order));
+        // Mesma chave, mesmo orderId → idempotente, retorna pedido sem novo save
+        when(repository.findByIdWithLock(1L)).thenReturn(Optional.of(order));
+        when(idempotencyRepository.findByIdempotencyKey("chave-001"))
+                .thenReturn(Optional.of(record));
 
         Order result = service.pay(1L, "chave-001");
 
         assertNotNull(result);
         verify(repository, never()).save(any(Order.class));
+        verify(idempotencyRepository, never()).save(any(IdempotencyRecord.class));
     }
+
+    @Test
+    void deveLancarConflitoPorChaveIdempotenteDePedidoDiferente() {
+        IdempotencyRecord record = new IdempotencyRecord();
+        record.setIdempotencyKey("chave-reutilizada");
+        record.setOrderId(99L); // pertence a outro pedido
+
+        when(repository.findByIdWithLock(1L)).thenReturn(Optional.of(order));
+        when(idempotencyRepository.findByIdempotencyKey("chave-reutilizada"))
+                .thenReturn(Optional.of(record));
+
+        assertThrows(IdempotencyConflictException.class,
+                () -> service.pay(1L, "chave-reutilizada"));
+    }
+
+    @Test
+    void deveLancarExcecaoQuandoPedidoNaoEncontradoNoPagamento() {
+        when(repository.findByIdWithLock(99L)).thenReturn(Optional.empty());
+
+        assertThrows(OrderNotFoundException.class, () -> service.pay(99L, "chave-001"));
+    }
+
+    // -------------------------------------------------------------------------
+    // updateStatus()
+    // -------------------------------------------------------------------------
 
     @Test
     void deveAtualizarStatusComSucesso() {
@@ -134,16 +183,30 @@ class OrderServiceTest {
     void deveLancarExcecaoParaTransicaoInvalida() {
         when(repository.findById(1L)).thenReturn(Optional.of(order));
 
+        // CREATED → DELIVERED pula PAID e SENT
         assertThrows(InvalidStatusTransitionException.class,
                 () -> service.updateStatus(1L, new OrderStatusUpdateDTO("DELIVERED")));
     }
 
     @Test
-    void deveLancarExcecaoQuandoPedidoNaoEncontrado() {
+    void deveLancarExcecaoParaStatusInvalido() {
+        when(repository.findById(1L)).thenReturn(Optional.of(order));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> service.updateStatus(1L, new OrderStatusUpdateDTO("CANCELADO")));
+    }
+
+    @Test
+    void deveLancarExcecaoQuandoPedidoNaoEncontradoNoUpdateStatus() {
         when(repository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThrows(OrderNotFoundException.class, () -> service.getById(99L));
+        assertThrows(OrderNotFoundException.class,
+                () -> service.updateStatus(99L, new OrderStatusUpdateDTO("PAID")));
     }
+
+    // -------------------------------------------------------------------------
+    // getById()
+    // -------------------------------------------------------------------------
 
     @Test
     void deveBuscarPedidoPorIdComSucesso() {
@@ -153,5 +216,12 @@ class OrderServiceTest {
 
         assertNotNull(result);
         assertEquals("12345678901", result.getCpfClient());
+    }
+
+    @Test
+    void deveLancarExcecaoQuandoPedidoNaoEncontrado() {
+        when(repository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(OrderNotFoundException.class, () -> service.getById(99L));
     }
 }

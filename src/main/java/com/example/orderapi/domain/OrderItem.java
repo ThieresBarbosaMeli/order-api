@@ -1,5 +1,6 @@
 package com.example.orderapi.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -26,6 +27,7 @@ public class OrderItem {
     @Column(nullable = false)
     private BigDecimal price;
 
+    @JsonIgnore // Evita recursão circular: Order → items → OrderItem → order → Order...
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false)
     private Order order;
